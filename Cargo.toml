@@ -1,0 +1,14 @@
+[package]
+name = "Flipper"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.65"
+bytes = "1.2.1"
+clap = "3.2.22"
+flate2 = { version = "1.0.24", features = ["zlib-ng"], default-features = false }
+scrap = "0.5.0"
+image = "0.24.3"

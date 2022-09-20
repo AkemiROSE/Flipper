@@ -3,12 +3,12 @@ mod service;
 mod utils;
 mod message;
 mod protocol;
+mod transport;
 
 use clap::{App, Arg};
 use anyhow::{Result, anyhow};
 
-use std::net::{TcpListener, SocketAddr, ToSocketAddrs, TcpStream};
-
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use service::Service;
 struct Server {
     listener: TcpListener,
@@ -16,29 +16,31 @@ struct Server {
 }
 
 impl Server {
-    fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self> {
+    pub async fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self> {
         Ok(Self {
-            listener: TcpListener::bind(addr)?,
+            listener: TcpListener::bind(addr).await?,
             service: Service::new()?,
         })
     } 
 
-    pub fn run(&mut self) {
-        match self.listener.accept() {
+    pub async fn run(&mut self) -> Result<()> {
+        match self.listener.accept().await {
             Ok((mut tcp_stream, addr,)) => {
                 println!("recv tcp connecting from {}", addr);
-                self.stream_handle(&mut tcp_stream);
+                self.stream_handle(&mut tcp_stream).await?;
             },
             Err(_) => {}
         }
+        Ok(())
     }
 
-    fn stream_handle(&mut self, tcp_stream: &mut TcpStream) -> Result<()>{
-        self.service.video_service_start(&mut tcp_stream.try_clone()?)?;
+    async fn stream_handle(&mut self, tcp_stream: &mut TcpStream) -> Result<()>{
+        self.service.video_service_start(tcp_stream).await?;
         Ok(())
     }
 }
-fn main() -> Result<()>{
+#[tokio::main]
+async fn main() -> Result<()>{
 
     let cli = App::new("Flipper")
     .version("1.0")
@@ -54,7 +56,7 @@ fn main() -> Result<()>{
     );
     let args = cli.get_matches();
     let socket = args.value_of("socket").unwrap_or_default();
-    let mut server = Server::bind(socket)?;
-    server.run();
+    let mut server = Server::bind(socket).await?;
+    server.run().await?;
     Ok(())
 }

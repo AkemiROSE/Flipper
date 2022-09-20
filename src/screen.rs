@@ -22,7 +22,7 @@ impl ScreenCap {
         (self.capturer.width(), self.capturer.height())
     }
 
-    pub fn capture(&mut self) -> Result<Vec<u8>> {
+    pub async fn capture(&mut self) -> Result<Vec<u8>> {
         let (width, height) = self.window_size();
         let one_second = std::time::Duration::new(1, 0);
         let one_frame = one_second / FPS;
@@ -60,4 +60,39 @@ fn frame_to_bytes(buffer: Frame, width: usize, height: usize)-> Vec<u8> {
             }
         }
         bitflipped
+}
+
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+
+    #[test]
+    fn test_slice_frame() -> Result<()>{
+        let mut scap = ScreenCap::new()?;
+        let (width, height) = scap.window_size();
+        let mut send_frame = vec![0u8; width * height * 4];
+        let mut recv_frame = vec![0u8; width * height * 4];
+        for _ in 0..10 {
+            let mut new_frame = scap.capture()?;
+            if send_frame.eq(&new_frame) {continue;}
+            let saved_frame = new_frame.clone();
+            new_frame.iter_mut()
+                .zip(send_frame.iter())
+                .for_each(|(b1, b2)|{
+                    *b1 ^= *b2;
+                });
+            send_frame = saved_frame.clone();
+            recv_frame.iter_mut()
+                .zip(new_frame.iter())
+                .for_each(|(b1, b2)|{
+                    *b1 ^= *b2;
+                });
+            assert!(recv_frame.eq(&saved_frame));
+
+        }
+        Ok(())
+    }
 }

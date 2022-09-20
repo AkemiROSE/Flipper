@@ -8,40 +8,26 @@ mod transport;
 
 use clap::{App, Arg};
 use anyhow::{Result, anyhow};
-
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+use tracing::trace;
+use tokio::net::{TcpListener, ToSocketAddrs};
 use service::Service;
-use transport::Transport;
-struct Server {
-    listener: TcpListener,
-    service: Service,
+
+
+pub async fn start_server<A: ToSocketAddrs>(addr: A) -> Result<()> {
+    let listener = TcpListener::bind(addr).await?;
+    match listener.accept().await {
+        Ok((tcp_stream, addr,)) => {
+            println!("recv tcp connecting from {}", addr);
+            let mut service = Service::new(tcp_stream)?;
+            service.video_service_start().await?;
+        },
+        Err(_) => {}
+    }
+    Ok(())
 }
 
-impl Server {
-    pub async fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self> {
-        Ok(Self {
-            listener: TcpListener::bind(addr).await?,
-            service: Service::new()?,
-        })
-    } 
 
-    pub async fn run(&mut self) -> Result<()> {
-        match self.listener.accept().await {
-            Ok((mut tcp_stream, addr,)) => {
-                println!("recv tcp connecting from {}", addr);
-                let transport = Transport::new(tcp_stream);
-                self.stream_handle(transport).await?;
-            },
-            Err(_) => {}
-        }
-        Ok(())
-    }
 
-    async fn stream_handle(&mut self, transport: Transport) -> Result<()>{
-        self.service.video_service_start(transport).await?;
-        Ok(())
-    }
-}
 #[tokio::main]
 async fn main() -> Result<()>{
 
@@ -59,7 +45,6 @@ async fn main() -> Result<()>{
     );
     let args = cli.get_matches();
     let socket = args.value_of("socket").unwrap_or_default();
-    let mut server = Server::bind(socket).await?;
-    server.run().await?;
+    start_server(socket).await?;
     Ok(())
 }

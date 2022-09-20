@@ -1,37 +1,32 @@
 use std::sync::Arc;
-use bytes::BytesMut;
+use std::marker::Unpin;
+use bytes::{BytesMut, Bytes, Buf};
 use tokio::{
     net::TcpStream,
-    io::{AsyncWriteExt, AsyncReadExt}, 
+    io::{AsyncWriteExt, AsyncReadExt, AsyncRead, AsyncWrite, BufStream}, 
     sync::RwLock
 };
+use tokio_stream::Stream;
+use tokio_util::codec::Framed;
+use futures_util::{SinkExt, StreamExt};
 use anyhow::Result;
 
-use crate::protocol::BinaryOutputProtocol;
-pub struct Transport {
-    inner: TcpStream,
-    protocol: BinaryOutputProtocol<BytesMut>,
-}
+use crate::message::{Message, MessageEntry};
+use crate::codec::MessageCodec;
 
-impl Transport {
-    pub fn new(tcp_stream: TcpStream) -> Self {
-        Self {
-            inner: tcp_stream,
-            protocol: BinaryOutputProtocol::new(BytesMut::new())
-        }
-    }
+pub struct Transport<T: AsyncRead + AsyncWrite + Unpin>(Framed<T, MessageCodec>);
 
-    
 
-    pub async fn send_all(&mut self, src: &[u8]) -> Result<()> {
-        
-        self.inner.write_all(src).await?;
-        Ok(())
-    }
-
-    pub async fn recv_exact(&mut self, buf: &mut [u8]) -> Result<()> {
-       
-        self.inner.read_exact(buf).await?;
-        Ok(())
+impl<T: AsyncRead + AsyncWrite + Unpin> Transport<T> {
+    pub fn new(io: T) -> Self {
+        let codec = MessageCodec::default();
+        Transport(Framed::new(io, codec))
     } 
+
+    pub async fn send(&mut self, msg: MessageEntry) -> Result<()> {
+        self.0.send(msg).await?;
+        Ok(())
+    }
 }
+
+

@@ -13,6 +13,25 @@ pub enum MessageEntry {
 
 }
 
+impl Message for MessageEntry {
+    fn decode<T: TInputProtocol>(protocol: &mut T) -> Result<Self> {
+        let messaage_type = protocol.read_byte()?;
+        match MessageType::try_from(messaage_type) {
+            Ok(MessageType::Config) => Ok(MessageEntry::Config(Config::decode(protocol)?)),
+            Ok(MessageType::Frame) => Ok(MessageEntry::Frame(Frame::decode(protocol)?)),
+            _ => Err(anyhow!("Wrong message type"))
+        } 
+    }
+
+    fn encode<T: TOutputProtocol>(&self, protocol: &mut T) -> Result<()> {
+        match self {
+            MessageEntry::Config(config) => config.encode(protocol),
+            MessageEntry::Frame(frame) => frame.encode(protocol),
+            _ => Err(anyhow!("wrong message type"))
+        }
+    }
+}
+
 pub struct Config{
     pub width: u64,
     pub height: u64,
@@ -50,12 +69,11 @@ impl Message for Config {
 }
 
 
-pub struct Frame(Vec<u8>);
+pub struct Frame(pub Vec<u8>);
 
 impl Message for Frame {
     fn encode<T: TOutputProtocol>(&self, protocol: &mut T) -> Result<()> {
         protocol.write_byte(u8::from(MessageType::Frame))?;
-        protocol.write_u64(self.0.len() as u64)?;
         protocol.write_bytes(&self.0[..])?;
 
         Ok(())

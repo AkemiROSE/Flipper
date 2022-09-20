@@ -1,3 +1,4 @@
+mod codec;
 mod screen;
 mod service;
 mod utils;
@@ -10,6 +11,7 @@ use anyhow::{Result, anyhow};
 
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use service::Service;
+use transport::Transport;
 struct Server {
     listener: TcpListener,
     service: Service,
@@ -27,15 +29,16 @@ impl Server {
         match self.listener.accept().await {
             Ok((mut tcp_stream, addr,)) => {
                 println!("recv tcp connecting from {}", addr);
-                self.stream_handle(&mut tcp_stream).await?;
+                let transport = Transport::new(tcp_stream);
+                self.stream_handle(transport).await?;
             },
             Err(_) => {}
         }
         Ok(())
     }
 
-    async fn stream_handle(&mut self, tcp_stream: &mut TcpStream) -> Result<()>{
-        self.service.video_service_start(tcp_stream).await?;
+    async fn stream_handle(&mut self, transport: Transport) -> Result<()>{
+        self.service.video_service_start(transport).await?;
         Ok(())
     }
 }

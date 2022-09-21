@@ -6,9 +6,9 @@ use flate2::{
     write::ZlibEncoder
 };
 
-pub fn compress(mut bytes: Vec<u8>) -> io::Result<Vec<u8>> {
+pub fn compress(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
-    e.write_all(&mut bytes[..])?;
+    e.write_all(bytes)?;
     e.finish()
 } 
 
@@ -25,7 +25,7 @@ mod test {
     #[test]
     fn test() {
         let mut s = vec![112,34,56,67,78,89,45,34,34,23,23,12,56];
-        let compressed = compress(s.clone()).unwrap();
+        let compressed = compress(&s[..]).unwrap();
         let res = decompress(&compressed[..]).unwrap();
         assert!(s.eq(&res))
     }

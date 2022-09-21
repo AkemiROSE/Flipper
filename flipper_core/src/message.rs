@@ -35,15 +35,15 @@ impl Message for MessageEntry {
 pub struct Config{
     pub width: u64,
     pub height: u64,
-    pub screen_size: u64 
+    pub frame_size: u64
 }
 
 impl Config {
-    pub fn new(width: u64, height: u64) ->Self {
+    pub fn new(width: u64, height: u64, frame_size: u64) ->Self {
         Self {
             width,
             height,
-            screen_size: width * height * 4 
+            frame_size
         }
     }
 }
@@ -52,8 +52,8 @@ impl Message for Config {
     fn encode<T: TOutputProtocol>(&self, protocol: &mut T) -> Result<()> {
         protocol.write_byte(u8::from(MessageType::Config))?;
         protocol.write_u64(self.width)?;
-        protocol.write_u64(self.height)?;
-        protocol.write_u64(self.screen_size)?;
+        protocol.write_u64(self.height)?;       
+        protocol.write_u64(self.frame_size)?; 
 
         Ok(())
     }
@@ -62,7 +62,7 @@ impl Message for Config {
         Ok(Self {
             width: protocol.read_u64()?,
             height: protocol.read_u64()?,
-            screen_size: protocol.read_u64()?,
+            frame_size: protocol.read_u64()?,
         })
     }
 

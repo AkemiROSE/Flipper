@@ -29,7 +29,8 @@ impl ScreenCap {
         loop{
             match self.capturer.frame() {
                 Ok(buffer) => {
-                    return Ok(frame_to_bytes(buffer, width, height));
+                    //return Ok(frame_to_bytes(buffer, width, height));
+                    return Ok(buffer.to_vec())
                 },
                 Err(error) => {
                     if error.kind() == WouldBlock {

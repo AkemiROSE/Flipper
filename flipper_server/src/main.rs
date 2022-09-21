@@ -1,16 +1,10 @@
-mod codec;
-mod screen;
-mod service;
-mod utils;
-mod message;
-mod protocol;
-mod transport;
+
 
 use clap::{App, Arg};
 use anyhow::{Result, anyhow};
-use tracing::trace;
+
 use tokio::net::{TcpListener, ToSocketAddrs};
-use service::Service;
+use flipper_core::service::Service;
 
 
 pub async fn start_server<A: ToSocketAddrs>(addr: A) -> Result<()> {

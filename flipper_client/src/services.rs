@@ -65,7 +65,7 @@ impl MirrorService {
 
 pub async fn run_video_server<A: ToSocketAddrs>(addr: A, img_sender: Sender<ColorImage>) -> Result<()> {
     println!("connet to remote");
-    let tcp_stream = TcpStream::connect(addr).await.expect("Can not connect to remote server");
+    let tcp_stream = TcpStream::connect(addr).await?;
     let mut trp = Transport::new(tcp_stream);
 
     let mut config: Config;
@@ -74,7 +74,7 @@ pub async fn run_video_server<A: ToSocketAddrs>(addr: A, img_sender: Sender<Colo
         MessageEntry::Config(conf) => {config = conf},
         _ => {panic!("first message should be config message.")}
     }
-    println!("Recved config: width:{}, height:{}, frame_size:{}",config.width, config.height, config.frame_size);
+    //println!("Recved config: width:{}, height:{}, frame_size:{}",config.width, config.height, config.frame_size);
     let mut last_frame = vec![0u8; config.frame_size as usize];
    
     loop {    
@@ -82,7 +82,7 @@ pub async fn run_video_server<A: ToSocketAddrs>(addr: A, img_sender: Sender<Colo
             Some(message) => {
                 match message{
                     MessageEntry::Frame(frame) => {
-                        let decompressed_bytes = decompress(&frame.0[..]).expect("dcompressed fail");
+                        let decompressed_bytes = decompress(&frame.0[..])?;
                         last_frame.iter_mut()
                             .zip(decompressed_bytes.iter())
                             .for_each(|(b1, b2)|{
@@ -90,9 +90,9 @@ pub async fn run_video_server<A: ToSocketAddrs>(addr: A, img_sender: Sender<Colo
                             });
                         let img_bytes = frame_to_img_bytes(&last_frame[..], config.width as _, config.height as _);
                         let screenshout = ColorImage::from_rgba_unmultiplied([config.width as _, config.height as _], &img_bytes[..]);
-                        img_sender.send(screenshout).expect("send img fail");       
+                        img_sender.send(screenshout)?;       
                     }
-                    _ =>{println!("Wrong message type: ");}
+                    _ =>()
                 }
             }
             None =>{}

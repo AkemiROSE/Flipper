@@ -1,10 +1,9 @@
-use anyhow::{Result, anyhow};
-use bytes::{BytesMut, Bytes, Buf, BufMut};
+use anyhow::{anyhow, Result};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
-use crate::message::{Message, MessageEntry, MessageType, Frame, Config};
-use crate::protocol::{TOutputProtocol, BinaryOutputProtocol, TInputProtocol, BinaryInputProtocol};
-
+use crate::message::{Config, Frame, Message, MessageEntry, MessageType};
+use crate::protocol::{BinaryInputProtocol, BinaryOutputProtocol, TInputProtocol, TOutputProtocol};
 
 pub struct FramedCodec<C>(C);
 
@@ -15,10 +14,10 @@ impl<C> FramedCodec<C> {
     }
 }
 
-impl<C, T> Encoder<T> for FramedCodec<C> 
+impl<C, T> Encoder<T> for FramedCodec<C>
 where
     C: Encoder<T>,
-    anyhow::Error: From<C::Error>
+    anyhow::Error: From<C::Error>,
 {
     type Error = anyhow::Error;
 
@@ -30,7 +29,7 @@ where
         }
         // Call inner encoder
         self.0.encode(item, dst)?;
-        let written = dst.len() - 8 - zero_index;      
+        let written = dst.len() - 8 - zero_index;
         let mut buf = &mut dst[zero_index..zero_index + 8];
         buf.put_u64(written as u64);
         Ok(())
@@ -40,7 +39,7 @@ where
 impl<C> Decoder for FramedCodec<C>
 where
     C: Decoder,
-    anyhow::Error: From<C::Error>
+    anyhow::Error: From<C::Error>,
 {
     type Item = C::Item;
     type Error = anyhow::Error;
@@ -55,7 +54,7 @@ where
         let mut length_bytes = [0u8; 8];
         length_bytes.copy_from_slice(&src[..8]);
         let length = u64::from_be_bytes(length_bytes) as usize;
-   
+
         if src.len() < 8 + length {
             src.reserve(8 + length - src.len());
 
@@ -66,19 +65,20 @@ where
         src.advance(8);
         let decoded = self.0.decode(src)?;
         match decoded {
-            None => Err(anyhow!("unable to decode message which the data size is enough for decoding")),
+            None => Err(anyhow!(
+                "unable to decode message which the data size is enough for decoding"
+            )),
             Some(inner) => Ok(Some(inner)),
         }
     }
 }
-
 
 #[derive(Default)]
 pub struct MessageCodec;
 
 impl Encoder<MessageEntry> for MessageCodec {
     type Error = anyhow::Error;
-    
+
     fn encode(&mut self, item: MessageEntry, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let mut protocol = BinaryOutputProtocol::new(dst);
         item.encode(&mut protocol)

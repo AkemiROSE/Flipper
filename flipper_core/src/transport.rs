@@ -1,27 +1,26 @@
-use std::sync::Arc;
+use anyhow::{anyhow, Result};
+use bytes::{Buf, Bytes, BytesMut};
+use futures_util::{SinkExt, StreamExt};
 use std::marker::Unpin;
-use bytes::{BytesMut, Bytes, Buf};
+use std::sync::Arc;
 use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufStream},
     net::TcpStream,
-    io::{AsyncWriteExt, AsyncReadExt, AsyncRead, AsyncWrite, BufStream}, 
-    sync::RwLock
+    sync::RwLock,
 };
 use tokio_stream::Stream;
 use tokio_util::codec::Framed;
-use futures_util::{SinkExt, StreamExt};
-use anyhow::{Result, anyhow};
 
+use crate::codec::{FramedCodec, MessageCodec};
 use crate::message::{Message, MessageEntry};
-use crate::codec::{FramedCodec,MessageCodec};
 
 pub struct Transport<T: AsyncRead + AsyncWrite + Unpin>(Framed<T, FramedCodec<MessageCodec>>);
-
 
 impl<T: AsyncRead + AsyncWrite + Unpin> Transport<T> {
     pub fn new(io: T) -> Self {
         let codec = MessageCodec::default();
         Transport(Framed::new(io, FramedCodec::new(codec)))
-    } 
+    }
 
     pub async fn send_mesage(&mut self, msg: MessageEntry) -> Result<()> {
         self.0.send(msg).await?;
@@ -30,16 +29,11 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Transport<T> {
 
     pub async fn recv_mesage(&mut self) -> Option<MessageEntry> {
         return match self.0.next().await {
-            Some(item) => {
-                match item {
-                    Ok(message) => Some(message),
-                    Err(_) => None
-                }
+            Some(item) => match item {
+                Ok(message) => Some(message),
+                Err(_) => None,
             },
-            None => {None}
-        }
-            
-    } 
+            None => None,
+        };
+    }
 }
-
-

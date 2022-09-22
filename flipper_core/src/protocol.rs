@@ -1,30 +1,24 @@
-use bytes::{BufMut, Buf};
-use anyhow::{Result, anyhow};
-
+use anyhow::{anyhow, Result};
+use bytes::{Buf, BufMut};
 
 pub trait TInputProtocol {
-
     fn read_bytes(&mut self) -> Result<Vec<u8>>;
 
     fn read_byte(&mut self) -> Result<u8>;
 
     fn read_u64(&mut self) -> Result<u64>;
-
 }
 
 pub trait TOutputProtocol {
-
     fn write_bytes(&mut self, b: &[u8]) -> Result<()>;
 
     fn write_byte(&mut self, b: u8) -> Result<()>;
 
     fn write_u64(&mut self, i: u64) -> Result<()>;
-
 }
 
-
 pub struct BinaryInputProtocol<T> {
-    buf: T
+    buf: T,
 }
 
 impl<T> BinaryInputProtocol<T> {
@@ -39,9 +33,9 @@ impl<T: Buf> TInputProtocol for BinaryInputProtocol<T> {
         protocol_len_check(&self.buf, 8)?;
         let num_bytes = self.buf.get_u64() as usize;
         let mut output = vec![0; num_bytes];
-        protocol_len_check(&self.buf, num_bytes)?; 
+        protocol_len_check(&self.buf, num_bytes)?;
         self.buf.copy_to_slice(&mut output);
-        
+
         Ok(output)
     }
 
@@ -59,7 +53,7 @@ impl<T: Buf> TInputProtocol for BinaryInputProtocol<T> {
 }
 
 pub struct BinaryOutputProtocol<T> {
-    buf: T
+    buf: T,
 }
 
 impl<T> BinaryOutputProtocol<T> {
@@ -86,7 +80,7 @@ impl<T: BufMut> TOutputProtocol for BinaryOutputProtocol<T> {
     fn write_u64(&mut self, i: u64) -> Result<()> {
         self.buf.put_u64(i);
         Ok(())
-    } 
+    }
 }
 
 #[inline]

@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use anyhow::{Result, anyhow, Error};
+use anyhow::{anyhow, Error, Result};
 
-use crate::protocol::{TOutputProtocol, BinaryOutputProtocol, TInputProtocol, BinaryInputProtocol};
+use crate::protocol::{BinaryInputProtocol, BinaryOutputProtocol, TInputProtocol, TOutputProtocol};
 
 pub trait Message: Sized {
     fn encode<T: TOutputProtocol>(&self, protocol: &mut T) -> Result<()>;
@@ -12,7 +12,6 @@ pub trait Message: Sized {
 pub enum MessageEntry {
     Config(Config),
     Frame(Frame),
-
 }
 
 impl Message for MessageEntry {
@@ -21,31 +20,31 @@ impl Message for MessageEntry {
         match MessageType::try_from(messaage_type) {
             Ok(MessageType::Config) => Ok(MessageEntry::Config(Config::decode(protocol)?)),
             Ok(MessageType::Frame) => Ok(MessageEntry::Frame(Frame::decode(protocol)?)),
-            _ => Err(anyhow!("Wrong message type"))
-        } 
+            _ => Err(anyhow!("Wrong message type")),
+        }
     }
 
     fn encode<T: TOutputProtocol>(&self, protocol: &mut T) -> Result<()> {
         match self {
             MessageEntry::Config(config) => config.encode(protocol),
             MessageEntry::Frame(frame) => frame.encode(protocol),
-            _ => Err(anyhow!("wrong message type"))
+            _ => Err(anyhow!("wrong message type")),
         }
     }
 }
 
-pub struct Config{
+pub struct Config {
     pub width: u64,
     pub height: u64,
-    pub frame_size: u64
+    pub frame_size: u64,
 }
 
 impl Config {
-    pub fn new(width: u64, height: u64, frame_size: u64) ->Self {
+    pub fn new(width: u64, height: u64, frame_size: u64) -> Self {
         Self {
             width,
             height,
-            frame_size
+            frame_size,
         }
     }
 }
@@ -54,8 +53,8 @@ impl Message for Config {
     fn encode<T: TOutputProtocol>(&self, protocol: &mut T) -> Result<()> {
         protocol.write_byte(u8::from(MessageType::Config))?;
         protocol.write_u64(self.width)?;
-        protocol.write_u64(self.height)?;       
-        protocol.write_u64(self.frame_size)?; 
+        protocol.write_u64(self.height)?;
+        protocol.write_u64(self.frame_size)?;
 
         Ok(())
     }
@@ -67,9 +66,7 @@ impl Message for Config {
             frame_size: protocol.read_u64()?,
         })
     }
-
 }
-
 
 pub struct Frame(pub Vec<u8>);
 
@@ -84,9 +81,7 @@ impl Message for Frame {
     fn decode<T: TInputProtocol>(protocol: &mut T) -> Result<Self> {
         Ok(Self(protocol.read_bytes()?))
     }
-   
 }
-
 
 pub enum MessageType {
     Config,

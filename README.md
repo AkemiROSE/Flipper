@@ -3,4 +3,5 @@ A toy remote desktop inspired by [diffscreen](https://github.com/pysrc/diffscree
 
 ## Run
 
-`cargo run -p flipper_server`
+Start server: `cargo run -p flipper_server`
+Start client: `cargo run -p flipper_client`

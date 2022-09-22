@@ -1,11 +1,8 @@
-
-
 use clap::{App, Arg};
 use anyhow::{Result, anyhow};
 
 use tokio::net::{TcpListener, ToSocketAddrs};
 use flipper_core::service::Service;
-
 
 pub async fn start_server<A: ToSocketAddrs>(addr: A) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;

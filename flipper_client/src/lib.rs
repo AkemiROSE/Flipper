@@ -2,10 +2,7 @@
 
 mod app;
 mod services;
-mod message;
-mod protocol;
 pub use app::MyApp;
-
 // ----------------------------------------------------------------------------
 // When compiling for web:
 

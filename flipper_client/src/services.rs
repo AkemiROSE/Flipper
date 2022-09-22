@@ -1,21 +1,25 @@
 
 use std::io::BufReader;
-use std::{net::TcpStream, io::Read};
 use std::boxed::Box;
 use std::thread;
 use std::fs::OpenOptions;
-use image::{codecs::png, ColorType, ImageEncoder};
-use flate2::Compression;
-use flate2::read::ZlibDecoder;
+use std::time::Duration;
 use bytes::Bytes;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use flume::Sender;
+use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::runtime::Runtime;
 use eframe::egui::{ColorImage, Context};
-use crate::protocol::BinaryProtocol;
-use crate::message::{Config, Message};
+
+use flipper_core::{
+    transport::Transport,
+    message::{Message, MessageType, MessageEntry, Config, Frame},
+    utils::{decompress, frame_to_img_bytes}
+};
+
+
 pub struct MirrorService {
     ctx: Option<Box<Context>>,
-    socket: TcpStream,
     img_sender: Sender<ColorImage>
 }
 
@@ -25,10 +29,10 @@ unsafe impl Sync for MirrorService{}
 
 
 impl MirrorService {
-    pub fn new(ctx: Option<Box<Context>>, socket: TcpStream, img_sender: Sender<ColorImage>) -> Self {
+    pub fn new(ctx: Option<Box<Context>>, img_sender: Sender<ColorImage>) -> Self {
         Self {           
             ctx, 
-            socket ,
+           
             img_sender
         }
     }
@@ -37,60 +41,66 @@ impl MirrorService {
         self.ctx = Some(ctx)
     }
 
-    pub fn run(&mut self) -> Result<()>{    
-        let mut br = BufReader::new(&mut self.socket);
-        let mut message_type = vec![0u8; 1];
-        let mut message_len = [0u8;8];
-        let size = vec![0u8; 2];
-        br.read_exact(&mut message_type);
-        let config = Config::from_be_bytes(&mut br)?;
-        let mut last_frame = vec![0u8; config.frame_size as usize];
-     
-        loop {
-            
-            br.read_exact(&mut message_type);
-            br.read_exact(&mut message_len);
-            let len = u64::from_be_bytes(message_len);
-            let mut img_bytes = vec![0; len as usize];
-            br.read_exact(&mut img_bytes);
-            
-            let decompressed_bytes = decompress(&img_bytes[..])?;
-            last_frame.iter_mut()
-                .zip(decompressed_bytes.iter())
-                .for_each(|(b1, b2)|{
-                    *b1 ^= *b2;
-                });
-            let img_bytes = frame_to_img_bytes(&last_frame[..], config.width as _, config.height as _);
-            let screenshout = ColorImage::from_rgba_unmultiplied([config.width as _, config.height as _], &img_bytes[..]);
-            if let Some(ctx) = self.ctx.as_ref() {
-                self.img_sender.send(screenshout)?;              
-            }
-        }
-        Ok(())
+    pub fn run(&mut self){    
+        let img_sender = self.img_sender.clone();
+        let rt = Runtime::new().expect("Unable to create Runtime");
+        let _enter = rt.enter();
+        
+        tokio::spawn(async {
+            run_video_server("127.0.0.1:8989", img_sender).await.expect("run video server fail")
+        });
+
+        std::thread::spawn(move || {
+            rt.block_on(async {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(1000)).await;
+                }
+            })
+        });
+
     }
+
+   
 }
 
+pub async fn run_video_server<A: ToSocketAddrs>(addr: A, img_sender: Sender<ColorImage>) -> Result<()> {
+    println!("connet to remote");
+    let tcp_stream = TcpStream::connect(addr).await.expect("Can not connect to remote server");
+    let mut trp = Transport::new(tcp_stream);
 
-pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>> {
-    let mut gz = ZlibDecoder::new(bytes);
-    let mut buf = vec![];
-    gz.read_to_end(&mut buf)?;
-    Ok(buf)
-}
-
-fn frame_to_img_bytes(frame: &[u8], width: usize, height: usize)-> Vec<u8> {
-    let mut bitflipped = Vec::with_capacity(width * height * 4);
-        let stride = frame.len() / height;
-        for y in 0..height {
-            for x in 0..width {
-                let i = stride * y + 4 * x;
-                bitflipped.extend_from_slice(&[
-                    frame[i + 2],
-                    frame[i + 1],
-                    frame[i],
-                    255
-                ]);
+    let mut config: Config;
+    let mut message =  trp.recv_mesage().await.ok_or(anyhow!(""))?; 
+    match message {
+        MessageEntry::Config(conf) => {config = conf},
+        _ => {panic!("first message should be config message.")}
+    }
+    println!("Recved config: width:{}, height:{}, frame_size:{}",config.width, config.height, config.frame_size);
+    let mut last_frame = vec![0u8; config.frame_size as usize];
+   
+    loop {    
+        match trp.recv_mesage().await {
+            Some(message) => {
+                match message{
+                    MessageEntry::Frame(frame) => {
+                        let decompressed_bytes = decompress(&frame.0[..]).expect("dcompressed fail");
+                        last_frame.iter_mut()
+                            .zip(decompressed_bytes.iter())
+                            .for_each(|(b1, b2)|{
+                                *b1 ^= *b2;
+                            });
+                        let img_bytes = frame_to_img_bytes(&last_frame[..], config.width as _, config.height as _);
+                        let screenshout = ColorImage::from_rgba_unmultiplied([config.width as _, config.height as _], &img_bytes[..]);
+                        img_sender.send(screenshout).expect("send img fail");       
+                    }
+                    _ =>{println!("Wrong message type: ");}
+                }
             }
-        }
-        bitflipped
+            None =>{}
+        }         
+        
+    }         
 }
+
+
+
+

@@ -39,8 +39,9 @@ impl<T: Buf> TInputProtocol for BinaryInputProtocol<T> {
         protocol_len_check(&self.buf, 8)?;
         let num_bytes = self.buf.get_u64() as usize;
         let mut output = vec![0; num_bytes];
-        protocol_len_check(&self.buf, num_bytes)?;
+        protocol_len_check(&self.buf, num_bytes)?; 
         self.buf.copy_to_slice(&mut output);
+        
         Ok(output)
     }
 
@@ -52,7 +53,7 @@ impl<T: Buf> TInputProtocol for BinaryInputProtocol<T> {
 
     #[inline]
     fn read_u64(&mut self) -> Result<u64> {
-        protocol_len_check(&self.buf, 4)?;
+        protocol_len_check(&self.buf, 8)?;
         Ok(self.buf.get_u64())
     }
 }

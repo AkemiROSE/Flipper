@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::{Result, anyhow, Error};
 
 use crate::protocol::{TOutputProtocol, BinaryOutputProtocol, TInputProtocol, BinaryInputProtocol};
@@ -84,6 +86,7 @@ impl Message for Frame {
     }
    
 }
+
 
 pub enum MessageType {
     Config,

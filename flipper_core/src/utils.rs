@@ -19,6 +19,23 @@ pub fn decompress(bytes: &[u8]) -> io::Result<Vec<u8>> {
     Ok(buf)
 }
 
+pub fn frame_to_img_bytes(frame: &[u8], width: usize, height: usize)-> Vec<u8> {
+    let mut bitflipped = Vec::with_capacity(width * height * 4);
+        let stride = frame.len() / height;
+        for y in 0..height {
+            for x in 0..width {
+                let i = stride * y + 4 * x;
+                bitflipped.extend_from_slice(&[
+                    frame[i + 2],
+                    frame[i + 1],
+                    frame[i],
+                    255
+                ]);
+            }
+        }
+        bitflipped
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

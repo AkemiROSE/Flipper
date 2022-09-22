@@ -35,11 +35,11 @@ impl Service {
         let mut last_frame= self.cap.capture().await?;    
         
         let config = Config::new(window_size.0 as _, window_size.1 as _, last_frame.len() as _);
-        self.trp.send(MessageEntry::Config(config)).await?;
+        self.trp.send_mesage(MessageEntry::Config(config)).await?;
         //send first frame
         let mut compressed_frame_bytes = compress(&last_frame[..])?;
         let frame = Frame(compressed_frame_bytes);
-        self.trp.send(MessageEntry::Frame(frame)).await?;
+        self.trp.send_mesage(MessageEntry::Frame(frame)).await?;
 
         loop {
             let mut new_frame = self.cap.capture().await?;
@@ -51,7 +51,7 @@ impl Service {
                 });
             let mut compressed_frame_bytes = compress(&last_frame[..])?;
             let frame = Frame(compressed_frame_bytes);
-            self.trp.send(MessageEntry::Frame(frame)).await?; 
+            self.trp.send_mesage(MessageEntry::Frame(frame)).await?; 
             last_frame = new_frame;
         } 
         Ok(())

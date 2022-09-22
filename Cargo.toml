@@ -9,8 +9,13 @@ edition = "2021"
 members =[
     "flipper_core",
     "flipper_server",
+    "flipper_client"
 ]
 
 [[bin]]
 name = "flipper_server"
 path = "flipper_server/src/main.rs"
+
+[[bin]]
+name = "flipper_client_bin"
+path = "flipper_client/src/main.rs"

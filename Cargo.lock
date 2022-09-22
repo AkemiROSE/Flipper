@@ -680,6 +680,7 @@ name = "flipper_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytes",
  "clap",
  "flipper_core",
  "tokio",

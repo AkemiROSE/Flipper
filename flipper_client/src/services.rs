@@ -38,17 +38,12 @@ impl MirrorService {
         let rt = Runtime::new().expect("Unable to create Runtime");
         let _enter = rt.enter();
 
-        tokio::spawn(async {
-            run_video_server("127.0.0.1:8989", img_sender)
-                .await
-                .expect("run video server fail")
-        });
-
         std::thread::spawn(move || {
             rt.block_on(async {
-                loop {
-                    tokio::time::sleep(Duration::from_secs(1000)).await;
-                }
+                run_video_server("127.0.0.1:8989", img_sender)
+                .await
+                .expect("run video server fail")
+        
             })
         });
     }

@@ -4,11 +4,11 @@ use tokio::{io::AsyncWriteExt, net::TcpStream, sync::RwLock};
 use anyhow::Result;
 use bytes::BytesMut;
 
-use crate::message::{Config, Frame, Message, MessageEntry, MessageType};
-use crate::protocol::BinaryOutputProtocol;
-use crate::screen::ScreenCap;
-use crate::transport::Transport;
-use crate::utils::{compress, decompress};
+use flipper_core::message::{Config, Frame, Message, MessageEntry, MessageType};
+use flipper_core::protocol::BinaryOutputProtocol;
+use flipper_core::screen::ScreenCap;
+use flipper_core::transport::Transport;
+use flipper_core::utils::{compress, decompress};
 
 pub struct Service {
     trp: Transport<TcpStream>,

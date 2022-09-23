@@ -1,3 +1,5 @@
+use std::net::TcpStream;
+
 use anyhow::{anyhow, Result};
 use clap::{App, Arg};
 
@@ -9,14 +11,21 @@ use service::Service;
 
 pub async fn start_server<A: ToSocketAddrs>(addr: A) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
-    match listener.accept().await {
-        Ok((tcp_stream, addr)) => {
-            println!("recv tcp connecting from {}", addr);
-            let mut service = Service::new(tcp_stream)?;
-            service.video_service_start().await?;
+    
+    loop {
+        match listener.accept().await {
+            Ok((tcp_stream, addr)) => {
+                println!("recv tcp connecting from {}", addr);
+                let mut service = Service::new(tcp_stream)?;
+                match service.video_service_start().await {
+                    Ok(_) =>{},
+                    Err(_) =>{println!("err");}
+                }
+            }
+            Err(_) => {}
         }
-        Err(_) => {}
     }
+    
     Ok(())
 }
 

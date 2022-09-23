@@ -17,7 +17,7 @@ use flipper_core::{
 };
 
 pub struct MirrorService {
-    ctx: Option<Box<Context>>,
+    
     img_sender: Sender<ColorImage>,
 }
 
@@ -25,22 +25,21 @@ unsafe impl Send for MirrorService {}
 unsafe impl Sync for MirrorService {}
 
 impl MirrorService {
-    pub fn new(ctx: Option<Box<Context>>, img_sender: Sender<ColorImage>) -> Self {
-        Self { ctx, img_sender }
+    pub fn new( img_sender: Sender<ColorImage>) -> Self {
+        Self { img_sender }
     }
 
-    pub fn set_ctx(&mut self, ctx: Box<Context>) {
-        self.ctx = Some(ctx)
-    }
+   
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, ctx: Context) {
         let img_sender = self.img_sender.clone();
+        
         let rt = Runtime::new().expect("Unable to create Runtime");
         let _enter = rt.enter();
 
         std::thread::spawn(move || {
             rt.block_on(async {
-                run_video_server("127.0.0.1:8989", img_sender)
+                run_video_server("192.168.2.118:8989", ctx, img_sender)
                 .await
                 .expect("run video server fail")
         
@@ -51,6 +50,7 @@ impl MirrorService {
 
 pub async fn run_video_server<A: ToSocketAddrs>(
     addr: A,
+    ctx: Context,
     img_sender: Sender<ColorImage>,
 ) -> Result<()> {
     println!("connet to remote");
@@ -58,7 +58,7 @@ pub async fn run_video_server<A: ToSocketAddrs>(
     let mut trp = Transport::new(tcp_stream);
 
     let mut config: Config;
-    let mut message = trp.recv_mesage().await.ok_or(anyhow!(""))?;
+    let mut message = trp.recv_mesage().await.ok_or(anyhow!("failed to recv message"))?;
     match message {
         MessageEntry::Config(conf) => config = conf,
         _ => {
@@ -84,8 +84,10 @@ pub async fn run_video_server<A: ToSocketAddrs>(
                     let screenshout = ColorImage::from_rgba_unmultiplied(
                         [config.width as _, config.height as _],
                         &img_bytes[..],
-                    );
+                    );             
+                   
                     img_sender.send(screenshout)?;
+                    ctx.request_repaint();
                 }
                 _ => (),
             },

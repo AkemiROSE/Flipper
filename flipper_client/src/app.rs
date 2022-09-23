@@ -23,7 +23,7 @@ impl MyApp {
         let (img_sender, img_recver) = flume::unbounded();
         Self {
             texture: None,
-            service: MirrorService::new(None, img_sender),
+            service: MirrorService::new(img_sender),
             service_is_run: false,
             img_recver,
         }
@@ -31,7 +31,7 @@ impl MyApp {
 
     pub fn service_start(&mut self, mut ctx: Context) {
         self.service_is_run = true;
-        self.service.run()
+        self.service.run(ctx)
     }
 }
 
@@ -53,6 +53,7 @@ impl eframe::App for MyApp {
             }
             if let Some(texture) = self.texture.as_ref() {
                 ui.image(texture, ui.available_size());
+                
             }
         });
     }

@@ -1,6 +1,8 @@
 use crate::services::MirrorService;
 use eframe::{
     egui::mutex::Mutex,
+    egui::containers::Frame,
+    egui::style::Margin,
     egui::widgets::plot::PlotImage,
     egui::{plot::PlotPoint, CentralPanel, TextureFilter, TextureHandle},
     egui::{ColorImage, Context},
@@ -15,7 +17,7 @@ pub struct MyApp {
     texture: Option<TextureHandle>,
     service: MirrorService,
     service_is_run: bool,
-    img_recver: Receiver<ColorImage>,
+    img_recver: Receiver<Box<ColorImage>>,
 }
 
 impl MyApp {
@@ -40,12 +42,15 @@ impl eframe::App for MyApp {
         if !self.service_is_run {
             self.service_start(ctx.clone());
         }
-        CentralPanel::default().show(ctx, |ui| {
+        let mut new_frame = Frame::none().inner_margin(Margin{left:0.0, right:0.0, top:0.0, bottom:0.0});
+        CentralPanel::default().frame(new_frame)
+        .show(ctx, |ui| {
             match self.img_recver.try_recv() {
-                Ok(img) => {
+                Ok(mut boxed_img) => {
+                    //let img = boxed_img.as_mut();
                     self.texture = Some(ui.ctx().load_texture(
                         "remote desktop",
-                        img,
+                        *boxed_img,//img.to_owned(),
                         TextureFilter::Linear,
                     ));
                 }
@@ -57,4 +62,43 @@ impl eframe::App for MyApp {
             }
         });
     }
+
+    fn save(&mut self, _storage: &mut dyn eframe::Storage) {}
+
+    fn on_close_event(&mut self) -> bool {
+        true
+    }
+
+    fn on_exit(&mut self, _gl: Option<&glow::Context>) {}
+
+    fn auto_save_interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(30)
+    }
+
+    fn max_size_points(&self) -> eframe::egui::Vec2 {
+        eframe::egui::Vec2::INFINITY
+    }
+
+    fn clear_color(&self, _visuals: &eframe::egui::Visuals) -> eframe::egui::Rgba {
+        // NOTE: a bright gray makes the shadows of the windows look weird.
+        // We use a bit of transparency so that if the user switches on the
+        // `transparent()` option they get immediate results.
+        eframe::egui::Color32::from_rgba_unmultiplied(12, 12, 12, 180).into()
+
+        // _visuals.window_fill() would also be a natural choice
+    }
+
+    fn persist_native_window(&self) -> bool {
+        true
+    }
+
+    fn persist_egui_memory(&self) -> bool {
+        true
+    }
+
+    fn warm_up_enabled(&self) -> bool {
+        false
+    }
+
+    fn post_rendering(&mut self, _window_size_px: [u32; 2], _frame: &eframe::Frame) {}
 }

@@ -1,5 +1,9 @@
 use std::sync::Arc;
-use tokio::{io::AsyncWriteExt, net::TcpStream, sync::RwLock};
+use tokio::{
+    io::AsyncWriteExt, 
+    net::TcpStream, 
+    sync::mpsc::{unbounded_channel, UnboundedSender, UnboundedReceiver, Receiver},
+    sync::RwLock};
 
 use anyhow::Result;
 use bytes::BytesMut;
@@ -13,15 +17,23 @@ use flipper_core::utils::{compress, decompress};
 pub struct Service {
     trp: Transport<TcpStream>,
     cap: ScreenCap,
+    message_tx: UnboundedSender<MessageEntry>,
+    message_rx: UnboundedReceiver<MessageEntry>,
+    shutdown_recver: Receiver<()>,
 }
 
 impl Service {
-    pub fn new(tcp_stream: TcpStream) -> Result<Self> {
+    pub fn new(tcp_stream: TcpStream, shutdown_recver: Receiver<()>) -> Result<Self> {
+        let (message_tx, message_rx) = unbounded_channel();
         Ok(Self {
             trp: Transport::new(tcp_stream),
             cap: ScreenCap::new()?,
+            message_tx,
+            message_rx,
+            shutdown_recver,
         })
     }
+
 
     pub async fn video_service_start(&mut self) -> Result<()> {
         let window_size = self.cap.window_size();

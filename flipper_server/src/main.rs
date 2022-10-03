@@ -1,36 +1,39 @@
+mod service;
+
 use std::net::TcpStream;
 
 use anyhow::{anyhow, Result};
 use clap::{App, Arg};
 
-use tokio::net::{TcpListener, ToSocketAddrs};
+use tokio::{
+    net::{TcpListener, ToSocketAddrs},
+    sync::mpsc::{channel, Receiver},
+};
+use tracing::{debug, error, info, instrument};
 
-mod service;
 
 use service::Service;
 
-pub async fn start_server<A: ToSocketAddrs>(addr: A) -> Result<()> {
+pub async fn start_server<A: ToSocketAddrs>(addr: A, shutdown_rx: Receiver<()>) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     
-    loop {
-        match listener.accept().await {
-            Ok((tcp_stream, addr)) => {
-                println!("recv tcp connecting from {}", addr);
-                let mut service = Service::new(tcp_stream)?;
-                match service.video_service_start().await {
-                    Ok(_) =>{},
-                    Err(_) =>{println!("err");}
-                }
+    match listener.accept().await {
+        Ok((tcp_stream, addr)) => {
+            println!("recv tcp connecting from {}", addr);
+            let mut service = Service::new(tcp_stream,shutdown_rx)?;
+            match service.video_service_start().await {
+                Ok(_) =>{},
+                Err(_) =>{return Err(anyhow!("connect interrupted"));}
             }
-            Err(_) => {}
         }
+        Err(e) => {return Err(anyhow!("couldn't get client: {:?}", e));}
     }
     
     Ok(())
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     let cli = App::new("Flipper")
         .version("1.0")
         .author("Author: RyuAlize <https://github.com/RyuAlize>")
@@ -43,6 +46,21 @@ async fn main() -> Result<()> {
         );
     let args = cli.get_matches();
     let socket = args.value_of("socket").unwrap_or_default();
-    start_server(socket).await?;
-    Ok(())
+    let (shutdown_tx, shutdown_rx) = channel(1);
+    let sig = tokio::signal::ctrl_c();
+
+    tokio::select! {
+        res = start_server(socket, shutdown_rx) => {
+            if let Err(err) = res {
+                error!(cause = %err, "failed to accept");
+            }
+        } 
+        _ = sig => {
+            shutdown_tx.send(()).await;
+            // The shutdown signal has been received.
+            info!("shutting down");
+        }
+    };
+    
+  
 }

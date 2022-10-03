@@ -18,14 +18,14 @@ use flipper_core::{
 
 pub struct MirrorService {
     
-    img_sender: Sender<ColorImage>,
+    img_sender: Sender<Box<ColorImage>>,
 }
 
 unsafe impl Send for MirrorService {}
 unsafe impl Sync for MirrorService {}
 
 impl MirrorService {
-    pub fn new( img_sender: Sender<ColorImage>) -> Self {
+    pub fn new( img_sender: Sender<Box<ColorImage>>) -> Self {
         Self { img_sender }
     }
 
@@ -39,7 +39,7 @@ impl MirrorService {
 
         std::thread::spawn(move || {
             rt.block_on(async {
-                run_video_server("192.168.2.118:8989", ctx, img_sender)
+                run_video_server("127.0.0.1:8989", ctx, img_sender)
                 .await
                 .expect("run video server fail")
         
@@ -51,8 +51,9 @@ impl MirrorService {
 pub async fn run_video_server<A: ToSocketAddrs>(
     addr: A,
     ctx: Context,
-    img_sender: Sender<ColorImage>,
+    img_sender: Sender<Box<ColorImage>>,
 ) -> Result<()> {
+    
     println!("connet to remote");
     let tcp_stream = TcpStream::connect(addr).await?;
     let mut trp = Transport::new(tcp_stream);
@@ -65,7 +66,7 @@ pub async fn run_video_server<A: ToSocketAddrs>(
             panic!("first message should be config message.")
         }
     }
-    //println!("Recved config: width:{}, height:{}, frame_size:{}",config.width, config.height, config.frame_size);
+
     let mut last_frame = vec![0u8; config.frame_size as usize];
 
     loop {
@@ -86,7 +87,7 @@ pub async fn run_video_server<A: ToSocketAddrs>(
                         &img_bytes[..],
                     );             
                    
-                    img_sender.send(screenshout)?;
+                    img_sender.send(Box::new(screenshout))?;
                     ctx.request_repaint();
                 }
                 _ => (),

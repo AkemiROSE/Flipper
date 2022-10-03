@@ -4,7 +4,7 @@ use std::thread;
 
 use scrap::{Capturer, Display, Frame};
 
-const FPS: u32 = 100;
+const FPS: u32 = 10;
 pub struct ScreenCap {
     capturer: Capturer,
 }
@@ -31,8 +31,8 @@ impl ScreenCap {
                     return Ok(buffer.to_vec());
                 }
                 Err(error) => {
-                    if error.kind() == WouldBlock {
-                        thread::sleep(one_frame);
+                    thread::sleep(one_frame);
+                    if error.kind() == WouldBlock {                    
                         continue;
                     } else {
                         return Err(error);
